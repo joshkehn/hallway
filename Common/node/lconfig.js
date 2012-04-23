@@ -12,6 +12,7 @@ var fs = require('fs');
 var path = require('path');
 
 exports.load = function(filepath) {
+  // Shortcut out if we are already loaded
   if (exports.loaded) return;
 
   // allow overriding
@@ -21,14 +22,19 @@ exports.load = function(filepath) {
     configPath = path.join(process.env.LOCKER_CONFIG, 'config.json');
   }
 
+  // Config object
   var config = {};
+
+  // Check to see if a file exists at that config path and load it if so.
   if (path.existsSync(configPath))
     config = JSON.parse(fs.readFileSync(configPath));
 
+  // Describe some defaults and attach them to the exports
   exports.lockerHost = config.lockerHost || 'localhost';
   exports.externalHost = config.externalHost || 'localhost';
   exports.lockerListenIP = config.lockerListenIP || '0.0.0.0';
 
+  // Either randomly pick a port or bind to 8042.
   exports.lockerPort = config.lockerPort;
   if (exports.lockerPort === 0) {
     exports.lockerPort = 8042 + Math.floor(Math.random()*100);
@@ -36,12 +42,16 @@ exports.load = function(filepath) {
     exports.lockerPort = 8042;
   }
 
-  if(config.externalPort)
+  // External port config
+  if(config.externalPort) {
     exports.externalPort = config.externalPort;
-  else if(config.externalSecure)
+  } else if(config.externalSecure) {
     exports.externalPort = 443;
-  else
+  } else {
     exports.externalPort = exports.lockerPort;
+  }
+
+  // More defaults
   exports.externalSecure = config.externalSecure;
   exports.registryUpdate = config.hasOwnProperty('registryUpdate') ? config.registryUpdate : true;
   exports.requireSigned = config.hasOwnProperty('requireSigned') ? config.requireSigned : true;
@@ -54,6 +64,7 @@ exports.load = function(filepath) {
   exports.authSecrets = config.authSecrets || {crypt:'foo', sign:'bar'}; // these need to be required to be set in prod, trusted cookies use them during auth
   exports.cookieExpire = config.cookieExpire || (60 * 60 * 24 * 30); // default 30 days
   exports.workerName = config.workerName || "generic";
+
   if (exports.stats.prefix) {
     var hostname = process.env.HOSTNAME
     , hostBasename;
@@ -63,7 +74,7 @@ exports.load = function(filepath) {
 
     exports.stats.prefix += '.' + hostBasename;
   }
-  //TODO this should only happen once
+  //TODO: this should only happen once. See end of function.
   setFromEnvs();
   setBase();
   exports.registryUpdateInterval = config.registryUpdateInterval || 3600;
@@ -93,11 +104,13 @@ exports.load = function(filepath) {
     exports.lockerDir = path.join(path.dirname(path.resolve(filepath)), "..");
   }
 
+  // API Key settings
   var configDir = process.env.LOCKER_CONFIG || 'Config';
   if (path.existsSync(path.join(configDir, 'apikeys.json'))) {
     exports.apikeysPath = path.join(configDir, 'apikeys.json');
   }
 
+  // Logging settings
   if(!config.logging) config.logging = {};
   exports.logging =  {
     file: config.logging.file || undefined,
@@ -105,6 +118,8 @@ exports.load = function(filepath) {
     maxsize: config.logging.maxsize || 256 * 1024 * 1024, // default max log file size of 64MBB
     console: (config.logging.hasOwnProperty('console')? config.logging.console : true)
   };
+
+  // Tolerance settings
   if(!config.tolerance) config.tolerance = {};
   exports.tolerance =  {
     threshold: config.tolerance.threshold || 50, // how many new/updated items
@@ -145,6 +160,8 @@ function setBase() {
     exports.externalBase += exports.externalPath;
 }
 
+// Allow config values to be altered based on LCONFIG_ prefixed
+// environment variables.
 function setFromEnvs() {
   for(var i in process.env) {
     if(i.indexOf('LCONFIG_') === 0) {
@@ -163,5 +180,7 @@ function setFromEnvs() {
       }
     }
   }
+
+  // Port override?
   if(process.env.PORT) exports.lockerPort = process.env.PORT;
 }

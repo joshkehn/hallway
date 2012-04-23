@@ -7,6 +7,7 @@
 *
 */
 
+// We are not alive
 exports.alive = false;
 
 
@@ -19,8 +20,11 @@ var lutil = require('lutil');
 
 // This lconfig stuff has to come before any other locker modules are loaded!!
 var lconfig = require('lconfig');
+
+// Environment parsing
 var configDir = process.env.LOCKER_CONFIG || 'Config';
 if (!lconfig.loaded) {
+    // Figure out if a specific config file was passed.
     var configFile;
     if (process.argv[2] === '--config') {
         configFile = process.argv[3];
@@ -31,6 +35,8 @@ if (!lconfig.loaded) {
     lconfig.load(configFile);
 }
 else {
+
+    // TODO: This should probably be info level
     console.warn("Locker config already loaded, me is set to", lconfig.me);
 }
 
@@ -44,6 +50,7 @@ var profileManager = require('profileManager');
 if (process.argv.indexOf("offline") >= 0) syncManager.manager.offlineMode = true;
 
 if (lconfig.lockerHost != "localhost" && lconfig.lockerHost != "127.0.0.1") {
+    // Warning about public facing stuff.
     logger.warn('If I\'m running on a public IP, I need to have password protection,' + // uniquely self (de?)referential? lolz!
                 'which if so inclined can be hacked into lockerd.js and added, since' +
                 ' it\'s apparently still not implemented :)\n\n');
@@ -90,14 +97,19 @@ function postStartup() {
 
 function shutdown(returnCode, callback) {
     if (shuttingDown_ && returnCode !== 0) {
+        // Shutdown called while already shutting down.
         try {
             console.error("Aieee! Shutdown called while already shutting down! Panicking!");
         }
         catch (e) {
-            // we tried...
+            // Here we catch the error to avoid a stacktrace while trying
+            // to shut down. Maybe just let it crash land?
         }
-        process.exit(1);
+
+        // Bail out of rest of function
+        return process.exit(1);
     }
+
     shuttingDown_ = true;
     process.stdout.write("\n");
     logger.info("Shutting down...");
@@ -109,19 +121,23 @@ function shutdown(returnCode, callback) {
     }
 }
 
+// Shortcut exit function
 function exit(returnCode) {
   logger.info("Shutdown complete");
   process.exit(returnCode);
 }
 
+// Shutdown on interrupt signal.
 process.on("SIGINT", function() {
     shutdown(0);
 });
 
+// Shutdown on terminate signal.
 process.on("SIGTERM", function() {
     shutdown(0);
 });
 
+// Catch all uncaught exceptions if we are not in testing mode.
 if (!process.env.LOCKER_TEST) {
   process.on('uncaughtException', function(err) {
     try {
@@ -142,7 +158,7 @@ if (!process.env.LOCKER_TEST) {
         console.error("Caught an exception while handling an uncaught exception!");
         console.error(e);
       } catch (e) {
-        // we tried...
+        // Should just let this crash land.
       }
       process.exit(1);
     }
